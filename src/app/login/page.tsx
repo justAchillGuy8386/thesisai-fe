@@ -94,35 +94,35 @@ export default function LoginPage() {
         </header>
 
         {/* Centered Form Area */}
-        <div className="w-full max-w-[500px] flex flex-col items-center my-auto py-12">
+        <div className="w-full max-w-[485px] flex flex-col items-center my-auto py-12">
 
           {/* Title & Subtitle */}
-          <div className="text-center w-full mb-8">
-            <h1 className="font-serif text-4xl sm:text-5xl lg:text-[50px] font-normal tracking-tight text-[#1F1E1D] leading-[1.15]">
+          <div className="text-center w-full mb-7">
+            <h1 className="font-serif text-4xl sm:text-[46px] lg:text-[48px] font-normal tracking-tight text-[#1F1E1D] leading-[1.15]">
               Làm chủ{" "}
               <span className="italic text-[#C83228] font-serif">
                 ngày bảo vệ
               </span>
             </h1>
-            <p className="mt-3 text-[17px] sm:text-lg font-sans text-[#524E46] font-normal whitespace-nowrap">
+            <p className="mt-2.5 text-[16px] sm:text-[17px] font-sans text-[#524E46] font-normal whitespace-nowrap">
               Người bạn đồng hành AI phản biện cho đề tài tốt nghiệp của bạn
             </p>
           </div>
 
-          {/* Prominent White Card (500px wide, generous padding, 50px inputs) */}
-          <div className="w-full bg-white rounded-2xl border border-[#E7E1D6] p-8 sm:p-10 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
+          {/* Symmetrical White Card (485px wide, balanced vertical padding) */}
+          <div className="w-full bg-white rounded-2xl border border-[#E7E1D6] py-8 px-6 sm:px-8 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
             {errorMessage && (
-              <div className="mb-6 p-4 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5]/60 text-xs sm:text-sm text-[#991B1B] flex items-start gap-3">
+              <div className="mb-5 p-3.5 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5]/60 text-xs sm:text-sm text-[#991B1B] flex items-start gap-3">
                 <AlertCircle className="w-4 h-4 shrink-0 text-[#DC2626] mt-0.5" />
                 <span>{errorMessage}</span>
               </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5">
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label
                   htmlFor="email"
-                  className="block text-sm font-medium text-[#4D4B46] mb-2"
+                  className="block text-sm font-medium text-[#4D4B46] mb-1.5"
                 >
                   Địa chỉ email
                 </label>
@@ -133,12 +133,12 @@ export default function LoginPage() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@university.edu.vn"
-                  className="w-full px-4 py-3.5 rounded-xl border border-[#D5D0C5] bg-[#FFFFFF] text-[#1F1E1D] text-base placeholder:text-[#A09B90] focus:outline-none focus:border-[#D97757] focus:ring-2 focus:ring-[#D97757]/15 transition-all"
+                  className="w-full px-4 py-3 rounded-xl border border-[#D5D0C5] bg-[#FFFFFF] text-[#1F1E1D] text-base placeholder:text-[#A09B90] focus:outline-none focus:border-[#D97757] focus:ring-2 focus:ring-[#D97757]/15 transition-all"
                 />
               </div>
 
               <div>
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-1.5">
                   <label
                     htmlFor="password"
                     className="block text-sm font-medium text-[#4D4B46]"
@@ -154,7 +154,7 @@ export default function LoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="••••••••••••"
-                    className="w-full px-4 py-3.5 pr-11 rounded-xl border border-[#D5D0C5] bg-[#FFFFFF] text-[#1F1E1D] text-base placeholder:text-[#A09B90] focus:outline-none focus:border-[#D97757] focus:ring-2 focus:ring-[#D97757]/15 transition-all"
+                    className="w-full px-4 py-3 pr-11 rounded-xl border border-[#D5D0C5] bg-[#FFFFFF] text-[#1F1E1D] text-base placeholder:text-[#A09B90] focus:outline-none focus:border-[#D97757] focus:ring-2 focus:ring-[#D97757]/15 transition-all"
                   />
                   <button
                     type="button"
@@ -180,7 +180,7 @@ export default function LoginPage() {
               >
                 {isLoading ? (
                   <>
-                    <Loader2 className="w-5 h-5 animate-spin text-white" />
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
                     <span>Đang xác thực...</span>
                   </>
                 ) : (
@@ -189,13 +189,13 @@ export default function LoginPage() {
               </button>
             </form>
 
-            <p className="mt-5 text-xs leading-relaxed text-[#858077] text-center">
+            <p className="mt-4 text-[11px] sm:text-[11.5px] text-[#7A756D] text-center whitespace-nowrap">
               Dữ liệu luận văn được bảo mật và phân tích mô hình cục bộ trên thiết bị của bạn.
             </p>
           </div>
 
           {/* Register Prompt */}
-          <div className="mt-7 flex items-center justify-center gap-1.5 text-sm text-[#6F6A62]">
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-sm text-[#6F6A62]">
             <span>Chưa có tài khoản nghiên cứu?</span>
             <Link
               href="/register"

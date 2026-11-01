@@ -103,24 +103,24 @@ export default function RegisterPage() {
         </header>
 
         {/* Centered Form Area */}
-        <div className="w-full max-w-[500px] flex flex-col items-center my-auto py-12">
+        <div className="w-full max-w-[470px] flex flex-col items-center my-auto py-12">
           {/* Title & Subtitle */}
-          <div className="text-center w-full mb-8">
-            <h1 className="font-serif text-4xl sm:text-5xl lg:text-[50px] font-normal tracking-tight text-[#1F1E1D] leading-[1.15]">
+          <div className="text-center w-full mb-7">
+            <h1 className="font-serif text-4xl sm:text-[46px] lg:text-[48px] font-normal tracking-tight text-[#1F1E1D] leading-[1.15]">
               Bắt đầu{" "}
               <span className="italic text-[#C83228] font-serif">
                 hành trình bảo vệ
               </span>
             </h1>
-            <p className="mt-3 text-[17px] sm:text-lg font-sans text-[#524E46] font-normal whitespace-nowrap">
+            <p className="mt-2.5 text-[16px] sm:text-[17px] font-sans text-[#524E46] font-normal whitespace-nowrap">
               Tạo tài khoản nghiên cứu và luyện tập phản biện cùng AI
             </p>
           </div>
 
-          {/* Prominent White Card (500px wide, generous padding, 50px inputs) */}
-          <div className="w-full bg-white rounded-2xl border border-[#E7E1D6] p-8 sm:p-10 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
+          {/* Symmetrical White Card (470px wide, balanced vertical padding, 50px inputs) */}
+          <div className="w-full bg-white rounded-2xl border border-[#E7E1D6] py-8 px-7 sm:px-8 shadow-[0_4px_24px_rgba(0,0,0,0.03)]">
             {errorMessage && (
-              <div className="mb-6 p-4 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5]/60 text-xs sm:text-sm text-[#991B1B] flex items-start gap-3">
+              <div className="mb-5 p-3.5 rounded-xl bg-[#FEF2F2] border border-[#FCA5A5]/60 text-xs sm:text-sm text-[#991B1B] flex items-start gap-3">
                 <AlertCircle className="w-4 h-4 shrink-0 text-[#DC2626] mt-0.5" />
                 <span>{errorMessage}</span>
               </div>
@@ -247,13 +247,13 @@ export default function RegisterPage() {
               </button>
             </form>
 
-            <p className="mt-5 text-xs leading-relaxed text-[#858077] text-center">
+            <p className="mt-4 text-[11px] sm:text-xs text-[#7A756D] text-center whitespace-nowrap overflow-hidden text-ellipsis">
               Dữ liệu luận văn được bảo mật và phân tích mô hình cục bộ trên thiết bị của bạn.
             </p>
           </div>
 
           {/* Login Prompt */}
-          <div className="mt-7 flex items-center justify-center gap-1.5 text-sm text-[#6F6A62]">
+          <div className="mt-6 flex items-center justify-center gap-1.5 text-sm text-[#6F6A62]">
             <span>Đã có tài khoản nghiên cứu?</span>
             <Link
               href="/login"
