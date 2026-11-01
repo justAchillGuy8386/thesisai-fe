@@ -44,14 +44,19 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      const res = await api.post<AuthResponse>("/auth/register", {
-        full_name: fullName.trim(),
+      await api.post("/auth/register", {
+        name: fullName.trim(),
         email: email.trim().toLowerCase(),
         password,
         role,
       });
 
-      login(res.access_token, res.user);
+      const loginRes = await api.post<AuthResponse>("/auth/login", {
+        email: email.trim().toLowerCase(),
+        password,
+      });
+
+      login(loginRes.access_token, loginRes.user);
       router.push("/");
     } catch (err: any) {
       setErrorMessage(
