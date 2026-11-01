@@ -1,14 +1,16 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, AlertCircle, Loader2, GraduationCap, School } from "lucide-react";
 import { api, AuthResponse } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
 
 export default function RegisterPage() {
   const router = useRouter();
+  const { login, isAuthenticated } = useAuth();
 
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -18,6 +20,12 @@ export default function RegisterPage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      router.push("/");
+    }
+  }, [isAuthenticated, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -43,11 +51,7 @@ export default function RegisterPage() {
         role,
       });
 
-      // Save credentials in localStorage
-      localStorage.setItem("thesisai_token", res.access_token);
-      localStorage.setItem("thesisai_user", JSON.stringify(res.user));
-
-      // Direct to dashboard or practice room
+      login(res.access_token, res.user);
       router.push("/");
     } catch (err: any) {
       setErrorMessage(
