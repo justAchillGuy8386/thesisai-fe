@@ -21,7 +21,7 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.push("/");
+      router.push("/dashboard");
     }
   }, [isAuthenticated, router]);
 
@@ -43,7 +43,7 @@ export default function LoginPage() {
       });
 
       login(res.access_token, res.user);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err: any) {
       setErrorMessage(
         err.message || "Email hoặc mật khẩu không chính xác. Vui lòng thử lại."

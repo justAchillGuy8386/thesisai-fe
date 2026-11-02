@@ -23,7 +23,7 @@ export default function RegisterPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      router.push("/");
+      router.push("/dashboard");
     }
   }, [isAuthenticated, router]);
 
@@ -57,7 +57,7 @@ export default function RegisterPage() {
       });
 
       login(loginRes.access_token, loginRes.user);
-      router.push("/");
+      router.push("/dashboard");
     } catch (err: any) {
       setErrorMessage(
         err.message || "Không thể tạo tài khoản. Vui lòng kiểm tra lại thông tin."

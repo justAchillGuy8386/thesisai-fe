@@ -21,6 +21,11 @@ const newsreader = Newsreader({
 export const metadata: Metadata = {
   title: "ThesisAI - Luyện tập bảo vệ luận văn với AI",
   description: "Hệ thống AI phản biện và luyện tập bảo vệ luận văn tốt nghiệp",
+  icons: {
+    icon: "/logo.svg",
+    shortcut: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 import { AuthProvider } from "@/context/AuthContext";
