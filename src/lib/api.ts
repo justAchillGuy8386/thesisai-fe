@@ -57,6 +57,25 @@ class ApiClient {
 
     return res.json();
   }
+
+  async patch<T>(endpoint: string, data: any): Promise<T> {
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "PATCH",
+      headers: {
+        "Content-Type": "application/json",
+        ...this.getAuthHeader(),
+      },
+      body: JSON.stringify(data),
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      const message = errorData.detail || "Đã xảy ra lỗi khi kết nối máy chủ";
+      throw new Error(message);
+    }
+
+    return res.json();
+  }
 }
 
 export const api = new ApiClient();
