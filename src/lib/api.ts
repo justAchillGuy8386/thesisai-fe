@@ -76,6 +76,41 @@ class ApiClient {
 
     return res.json();
   }
+
+  async upload<T>(endpoint: string, formData: FormData): Promise<T> {
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "POST",
+      headers: {
+        ...this.getAuthHeader(),
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      const message = errorData.detail || "Đã xảy ra lỗi khi tải lên tệp";
+      throw new Error(message);
+    }
+
+    return res.json();
+  }
+
+  async delete<T>(endpoint: string): Promise<T> {
+    const res = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: "DELETE",
+      headers: {
+        ...this.getAuthHeader(),
+      },
+    });
+
+    if (!res.ok) {
+      const errorData = await res.json().catch(() => ({}));
+      const message = errorData.detail || "Đã xảy ra lỗi khi xóa dữ liệu";
+      throw new Error(message);
+    }
+
+    return res.json();
+  }
 }
 
 export const api = new ApiClient();

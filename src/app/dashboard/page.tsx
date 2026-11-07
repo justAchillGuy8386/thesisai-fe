@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
+import DocumentManagerModal from "@/components/DocumentManagerModal";
 import {
   projectService,
   Project,
@@ -54,6 +55,9 @@ export default function DashboardPage() {
   const [editStatus, setEditStatus] = useState<ProjectStatus>("PLANNING");
   const [editAcademicYear, setEditAcademicYear] = useState("");
   const [editSupervisorId, setEditSupervisorId] = useState<string>("");
+
+  // Document Manager Modal state
+  const [isDocModalOpen, setIsDocModalOpen] = useState(false);
 
   // Redirect unauthenticated users
   useEffect(() => {
@@ -503,13 +507,19 @@ export default function DashboardPage() {
                     </div>
 
                     <button
-                      onClick={() => {
-                        toast.info("Tính năng Quản lý & Tải lên tài liệu sẽ được triển khai chi tiết ở Phase 5.");
-                      }}
-                      className="w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl bg-[#FAF7F2] hover:bg-[#F2ECE1] border border-[#DDD5C9] text-[#1F1E1D] text-xs sm:text-sm font-medium transition-all cursor-pointer"
+                      onClick={() => setIsDocModalOpen(true)}
+                      className={`w-full inline-flex items-center justify-center gap-2 py-3 px-4 rounded-xl text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                        project.documents_count === 0
+                          ? "bg-[#D97757] hover:bg-[#C86B4D] text-white shadow-xs"
+                          : "bg-[#FAF7F2] hover:bg-[#F2ECE1] border border-[#DDD5C9] text-[#1F1E1D]"
+                      }`}
                     >
-                      <Upload className="w-4 h-4 text-[#D97757]" />
-                      <span>Quản lý & Tải lên tài liệu đồ án (Phase 5)</span>
+                      <Upload className="w-4 h-4" />
+                      <span>
+                        {project.documents_count === 0
+                          ? "Tải lên tài liệu nghiên cứu ngay"
+                          : "Quản lý & Tải lên tài liệu mới"}
+                      </span>
                     </button>
                   </div>
 
@@ -555,10 +565,11 @@ export default function DashboardPage() {
                         onClick={() => {
                           if (project.documents_count === 0) {
                             toast.warning(
-                              "Bạn chưa nạp tài liệu nghiên cứu. Vui lòng nạp tài liệu ở Phase 5 để Hội đồng AI có căn cứ sinh câu hỏi!"
+                              "Bạn chưa nạp tài liệu nghiên cứu. Vui lòng nạp tài liệu trước để Hội đồng AI có căn cứ sinh câu hỏi!"
                             );
+                            setIsDocModalOpen(true);
                           } else {
-                            toast.info("Phòng luyện tập bảo vệ sẽ được kết nối ở Phase 6!");
+                            toast.success("Nguồn tri thức đã sẵn sàng! Phòng phản biện AI sẽ được kết nối ở Phase 6.");
                           }
                         }}
                         className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-5 rounded-xl bg-[#D97757] hover:bg-[#C86B4D] active:scale-[0.99] text-white text-sm sm:text-base font-medium transition-all shadow-md cursor-pointer"
@@ -716,6 +727,18 @@ export default function DashboardPage() {
               </form>
             </div>
           </div>
+        )}
+
+        {/* Document Manager Modal */}
+        {project && (
+          <DocumentManagerModal
+            projectId={project.id}
+            isOpen={isDocModalOpen}
+            onClose={() => setIsDocModalOpen(false)}
+            onDocumentsChange={(newCount) => {
+              setProject((prev) => (prev ? { ...prev, documents_count: newCount } : null));
+            }}
+          />
         )}
       </main>
     </div>
