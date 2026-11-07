@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import DocumentManagerModal from "@/components/DocumentManagerModal";
+import { KnowledgeProfileSection } from "@/components/KnowledgeProfileSection";
 import {
   projectService,
   Project,
@@ -571,12 +572,15 @@ export default function DashboardPage() {
                         <ArrowRight className="w-4 h-4 ml-1" />
                       </button>
 
-                      <span className="block text-center text-[11px] text-[#A8A29E] mt-3">
-                        Hoàn toàn bảo mật &bull; Chạy cục bộ trên phần cứng máy bạn
-                      </span>
                     </div>
                   </div>
                 </div>
+
+                {/* Phase 6: Knowledge Profile & Defense Prediction Section */}
+                <KnowledgeProfileSection
+                  projectId={project.id}
+                  hasDocuments={project.documents_count > 0}
+                />
               </div>
             )}
           </>
