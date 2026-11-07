@@ -405,15 +405,12 @@ export default function DashboardPage() {
                       )}
                     </div>
 
-                    {/* Quick Status Dropdown */}
-                    <div className="shrink-0 bg-[#FAF8F5] p-3 rounded-2xl border border-[#E5DFD5]">
-                      <span className="text-[11px] font-bold text-[#8C857B] uppercase tracking-wider block mb-1.5">
-                        Chuyển nhanh trạng thái
-                      </span>
+                    {/* Quick Status Dropdown / Listbox */}
+                    <div className="shrink-0">
                       <select
                         value={project.status}
                         onChange={(e) => handleQuickStatusChange(e.target.value as ProjectStatus)}
-                        className="text-xs font-medium bg-white border border-[#DDD5C9] rounded-lg px-3 py-2 text-[#1F1E1D] focus:outline-none focus:border-[#D97757] cursor-pointer"
+                        className="text-xs sm:text-sm font-medium bg-[#FAF8F5] hover:bg-[#F2ECE1] border border-[#DDD5C9] rounded-xl px-3.5 py-2.5 text-[#1F1E1D] focus:outline-none focus:ring-2 focus:ring-[#D97757]/30 focus:border-[#D97757] cursor-pointer transition-all shadow-2xs"
                       >
                         <option value="PLANNING">Lập kế hoạch</option>
                         <option value="IN_PROGRESS">Đang triển khai</option>
@@ -499,11 +496,6 @@ export default function DashboardPage() {
                           </div>
                         </div>
                       )}
-
-                      <p className="text-xs text-[#7A756D] leading-relaxed mb-6">
-                        Định dạng hỗ trợ: <strong className="text-[#1F1E1D]">PDF, DOCX, PPTX</strong> (Tối đa 50MB/tệp).
-                        Hệ thống tự động phân tách số trang và lập chỉ mục ngữ nghĩa ngay trên máy của bạn.
-                      </p>
                     </div>
 
                     <button
