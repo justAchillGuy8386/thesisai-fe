@@ -6,6 +6,7 @@ import { useAuth } from "@/context/AuthContext";
 import Header from "@/components/Header";
 import DocumentManagerModal from "@/components/DocumentManagerModal";
 import { KnowledgeProfileSection } from "@/components/KnowledgeProfileSection";
+import PracticeSessionsSection from "@/components/PracticeSessionsSection";
 import {
   projectService,
   Project,
@@ -562,7 +563,10 @@ export default function DashboardPage() {
                             );
                             setIsDocModalOpen(true);
                           } else {
-                            toast.success("Nguồn tri thức đã sẵn sàng! Phòng phản biện AI sẽ được kết nối ở Phase 6.");
+                            const el = document.getElementById("practice-sessions-section");
+                            if (el) {
+                              el.scrollIntoView({ behavior: "smooth" });
+                            }
                           }
                         }}
                         className="w-full inline-flex items-center justify-center gap-2 py-3.5 px-5 rounded-xl bg-[#D97757] hover:bg-[#C86B4D] active:scale-[0.99] text-white text-sm sm:text-base font-medium transition-all shadow-md cursor-pointer"
@@ -571,7 +575,6 @@ export default function DashboardPage() {
                         <span>Bắt đầu Luyện tập Phản biện</span>
                         <ArrowRight className="w-4 h-4 ml-1" />
                       </button>
-
                     </div>
                   </div>
                 </div>
@@ -581,6 +584,14 @@ export default function DashboardPage() {
                   projectId={project.id}
                   hasDocuments={project.documents_count > 0}
                 />
+
+                {/* Phase 7: Practice Sessions Section (Question Generation & Session History) */}
+                <div id="practice-sessions-section">
+                  <PracticeSessionsSection
+                    projectId={project.id}
+                    hasDocuments={project.documents_count > 0}
+                  />
+                </div>
               </div>
             )}
           </>
