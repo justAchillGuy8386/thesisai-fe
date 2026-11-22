@@ -196,7 +196,7 @@ export default function PracticeSessionsSection({
                     <div>
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-sm sm:text-base text-[#1F1E1D]">
-                          Phiên #{s.id}
+                          Phiên #{s.session_number ?? s.id}
                         </span>
                         <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#EFE9DF] text-[#5C564E] font-medium">
                           {s.mode === "question_answer"

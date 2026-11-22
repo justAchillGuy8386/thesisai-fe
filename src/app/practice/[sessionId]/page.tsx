@@ -299,7 +299,7 @@ function PracticeRoomContent() {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="font-serif text-lg sm:text-xl text-[#1F1E1D] font-medium leading-none">
-                Phiên Luyện tập #{session.id}
+                Phiên Luyện tập #{session.session_number ?? session.id}
               </h1>
               <span
                 className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${

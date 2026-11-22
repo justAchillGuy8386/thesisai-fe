@@ -16,6 +16,7 @@ export interface QuestionResponse {
 
 export interface PracticeSessionListItem {
   id: number;
+  session_number?: number;
   project_id: number;
   mode: string;
   status: "in_progress" | "completed" | "cancelled" | string;
@@ -28,6 +29,7 @@ export interface PracticeSessionListItem {
 
 export interface PracticeSessionDetail {
   id: number;
+  session_number?: number;
   project_id: number;
   mode: string;
   status: "in_progress" | "completed" | "cancelled" | string;
