@@ -14,6 +14,7 @@ import {
   Calendar,
   Layers,
   HelpCircle,
+  AlertCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -167,7 +168,9 @@ export default function PracticeSessionsSection({
         ) : (
           <div className="space-y-3">
             {sessions.map((s) => {
+              const isPartialFailed = s.status === "partial_failed";
               const isCompleted = s.status === "completed";
+              const isFinished = isCompleted || isPartialFailed;
               const progressPct =
                 s.total_questions > 0
                   ? Math.round((s.answered_questions / s.total_questions) * 100)
@@ -181,12 +184,16 @@ export default function PracticeSessionsSection({
                   <div className="flex items-start gap-3.5">
                     <div
                       className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                        isCompleted
+                        isPartialFailed
+                          ? "bg-rose-50 text-rose-700 border border-rose-200"
+                          : isCompleted
                           ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
                           : "bg-amber-50 text-amber-700 border border-amber-200"
                       }`}
                     >
-                      {isCompleted ? (
+                      {isPartialFailed ? (
+                        <AlertCircle className="w-5 h-5" />
+                      ) : isCompleted ? (
                         <CheckCircle2 className="w-5 h-5" />
                       ) : (
                         <Play className="w-4 h-4 ml-0.5" />
@@ -205,12 +212,18 @@ export default function PracticeSessionsSection({
                         </span>
                         <span
                           className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                            isCompleted
+                            isPartialFailed
+                              ? "bg-rose-100 text-rose-800"
+                              : isCompleted
                               ? "bg-emerald-100 text-emerald-800"
                               : "bg-amber-100 text-amber-800"
                           }`}
                         >
-                          {isCompleted ? "Đã hoàn thành" : "Đang thực hiện"}
+                          {isPartialFailed
+                            ? "Hoàn tất một phần"
+                            : isCompleted
+                            ? "Đã hoàn thành"
+                            : "Đang thực hiện"}
                         </span>
                       </div>
 
@@ -235,7 +248,7 @@ export default function PracticeSessionsSection({
                       onClick={() => router.push(`/practice/${s.id}`)}
                       className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-white border border-[#DDD5C9] hover:bg-[#FAF7F2] hover:border-[#D97757] text-[#1F1E1D] text-xs sm:text-sm font-medium transition-all cursor-pointer group shadow-2xs"
                     >
-                      <span>{isCompleted ? "Xem lại kết quả" : "Vào phòng luyện tập"}</span>
+                      <span>{isFinished ? "Xem lại kết quả" : "Vào phòng luyện tập"}</span>
                       <ArrowRight className="w-4 h-4 text-[#D97757] group-hover:translate-x-0.5 transition-transform" />
                     </button>
                   </div>

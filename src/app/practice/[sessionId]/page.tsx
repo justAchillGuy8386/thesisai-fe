@@ -17,6 +17,7 @@ import {
   BookOpen,
   Loader2,
   RotateCcw,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -52,6 +53,8 @@ function PracticeRoomContent() {
   const [isLoading, setIsLoading] = useState(true);
   const [isOutlineOpen, setIsOutlineOpen] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isFinishModalOpen, setIsFinishModalOpen] = useState(false);
+  const [isCheckingFinishProgress, setIsCheckingFinishProgress] = useState(false);
 
   // Voice recording & evaluation state
   const recorder = useVoiceRecorder();
@@ -278,18 +281,46 @@ function PracticeRoomContent() {
       .catch(() => {});
   };
 
-  // Mark session complete
+  // Open finish-session modal after checking latest background job progress
   const handleCompleteSession = async () => {
     if (isCompleted || !session) {
       toast.info("Phiên luyện tập này đã hoàn thành.");
       return;
     }
 
+    setIsFinishModalOpen(true);
+    setIsCheckingFinishProgress(true);
+    try {
+      const latestProgress = await practiceService.getSessionProgress(session.id);
+      setProgress(latestProgress);
+    } catch (err) {
+      console.warn("Could not refresh session progress before finishing:", err);
+    } finally {
+      setIsCheckingFinishProgress(false);
+    }
+  };
+
+  // Confirm closing the session (Backend automatically marks 'partial_failed' if any answer failed)
+  const handleConfirmCompleteSession = async () => {
+    if (isCompleted || !session) return;
+
     setIsUpdatingStatus(true);
     try {
       const updated = await practiceService.updateSessionStatus(session.id, "completed");
       setSession(updated);
-      toast.success("Đã hoàn thành phiên luyện tập bảo vệ!");
+      setIsFinishModalOpen(false);
+      practiceService
+        .getSessionProgress(session.id)
+        .then((p) => setProgress(p))
+        .catch(() => {});
+
+      if (updated.status === "partial_failed") {
+        toast.warning(
+          "Phiên đã kết thúc ở trạng thái Hoàn tất một phần do có câu trả lời xử lý lỗi."
+        );
+      } else {
+        toast.success("Đã hoàn thành phiên luyện tập bảo vệ!");
+      }
     } catch (err: any) {
       toast.error(err.message || "Không thể cập nhật trạng thái phiên.");
     } finally {
@@ -704,21 +735,205 @@ function PracticeRoomContent() {
               Câu {currentIdx + 1} / {session.questions.length}
             </span>
 
-            <button
-              onClick={() => {
-                if (currentIdx < session.questions.length - 1) {
-                  setCurrentIdx(currentIdx + 1);
-                }
-              }}
-              disabled={currentIdx === session.questions.length - 1}
-              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D97757] hover:bg-[#C86B4D] text-xs sm:text-sm font-medium text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shadow-xs"
-            >
-              <span>Câu tiếp theo</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            {currentIdx === session.questions.length - 1 && !isCompleted ? (
+              <button
+                onClick={handleCompleteSession}
+                disabled={isUpdatingStatus}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-xs sm:text-sm font-medium text-white transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+              >
+                <CheckCircle2 className="w-4 h-4" />
+                <span>Kết thúc phiên</span>
+              </button>
+            ) : (
+              <button
+                onClick={() => {
+                  if (currentIdx < session.questions.length - 1) {
+                    setCurrentIdx(currentIdx + 1);
+                  }
+                }}
+                disabled={currentIdx === session.questions.length - 1}
+                className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D97757] hover:bg-[#C86B4D] text-xs sm:text-sm font-medium text-white transition-colors cursor-pointer disabled:opacity-30 disabled:cursor-not-allowed shadow-xs"
+              >
+                <span>Câu tiếp theo</span>
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
           </div>
         </div>
       </main>
+
+      {/* Finish Session Verification Modal */}
+      {isFinishModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="finish-session-title"
+        >
+          <div className="bg-white rounded-3xl border border-[#EAE4D9] shadow-xl max-w-md w-full p-6 space-y-5">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2
+                  id="finish-session-title"
+                  className="font-serif text-xl text-[#1F1E1D] font-medium"
+                >
+                  Kết thúc Phiên #{session.session_number ?? session.id}
+                </h2>
+                <p className="text-xs text-[#706B63] mt-1">
+                  Kiểm tra tiến trình xử lý câu trả lời trước khi chốt phiên.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsFinishModalOpen(false)}
+                className="p-1.5 rounded-xl text-[#706B63] hover:bg-[#FAF7F2] hover:text-[#1F1E1D] transition-colors cursor-pointer"
+                aria-label="Đóng"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {isCheckingFinishProgress ? (
+              <div className="py-8 flex flex-col items-center justify-center gap-2.5 text-[#706B63]">
+                <Loader2 className="w-6 h-6 animate-spin text-[#D97757]" />
+                <span className="text-xs">Đang kiểm tra trạng thái các tác vụ ngầm...</span>
+              </div>
+            ) : (
+              (() => {
+                const completedCount =
+                  progress?.completed_count ??
+                  session.questions.filter((q) => getQuestionStatus(q) === "completed").length;
+                const unansweredCount =
+                  progress?.unanswered_count ??
+                  Math.max(0, session.questions.length - answeredCount);
+
+                return (
+                  <>
+                    {/* 3 Compact Truthful Counters */}
+                    <div className="grid grid-cols-3 gap-2.5 text-center">
+                      <div className="p-3 rounded-2xl bg-emerald-50/70 border border-emerald-200">
+                        <span className="block text-xl font-bold font-serif text-emerald-700">
+                          {completedCount}
+                        </span>
+                        <span className="text-[11px] text-emerald-800 font-medium">
+                          Đã chấm xong
+                        </span>
+                      </div>
+                      <div className="p-3 rounded-2xl bg-[#FAF8F5] border border-[#EAE4D9]">
+                        <span className="block text-xl font-bold font-serif text-[#5C564E]">
+                          {unansweredCount}
+                        </span>
+                        <span className="text-[11px] text-[#706B63] font-medium">
+                          Chưa trả lời
+                        </span>
+                      </div>
+                      <div
+                        className={`p-3 rounded-2xl border ${
+                          failedCount > 0
+                            ? "bg-rose-50/80 border-rose-200"
+                            : pendingCount > 0
+                            ? "bg-amber-50/80 border-amber-200"
+                            : "bg-[#FAF8F5] border-[#EAE4D9]"
+                        }`}
+                      >
+                        <span
+                          className={`block text-xl font-bold font-serif ${
+                            failedCount > 0
+                              ? "text-rose-700"
+                              : pendingCount > 0
+                              ? "text-amber-700"
+                              : "text-[#5C564E]"
+                          }`}
+                        >
+                          {pendingCount > 0 ? pendingCount : failedCount}
+                        </span>
+                        <span
+                          className={`text-[11px] font-medium ${
+                            failedCount > 0
+                              ? "text-rose-800"
+                              : pendingCount > 0
+                              ? "text-amber-800"
+                              : "text-[#706B63]"
+                          }`}
+                        >
+                          {pendingCount > 0 ? "Đang xử lý" : failedCount > 0 ? "Bị lỗi" : "Lỗi / Chờ"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Contextual Truthful Status Notices */}
+                    <div className="space-y-2.5 text-xs leading-relaxed">
+                      {pendingCount > 0 && (
+                        <div className="p-3.5 rounded-2xl bg-amber-50 border border-amber-200 text-amber-900 flex items-start gap-2.5">
+                          <Loader2 className="w-4 h-4 text-amber-600 animate-spin shrink-0 mt-0.5" />
+                          <span>
+                            Còn <strong>{pendingCount} câu</strong> đang xử lý ngầm (gỡ băng &amp; chấm điểm). Bạn có thể đợi ngay tại đây — trạng thái sẽ tự động cập nhật khi hoàn tất, hoặc vẫn kết thúc phiên ngay.
+                          </span>
+                        </div>
+                      )}
+
+                      {failedCount > 0 && (
+                        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 text-rose-900 flex items-start gap-2.5">
+                          <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
+                          <span>
+                            Có <strong>{failedCount} câu</strong> xử lý thất bại. Nếu chốt phiên ngay, hệ thống sẽ ghi nhận trạng thái <strong>Hoàn tất một phần</strong> (bạn có thể thu âm lại trước khi chốt).
+                          </span>
+                        </div>
+                      )}
+
+                      {pendingCount === 0 && failedCount === 0 && unansweredCount > 0 && (
+                        <div className="p-3.5 rounded-2xl bg-[#FAF8F5] border border-[#EAE4D9] text-[#5C564E]">
+                          Còn <strong>{unansweredCount} câu</strong> chưa trả lời. Bạn vẫn có thể kết thúc phiên để chốt kết quả các câu đã làm.
+                        </div>
+                      )}
+
+                      {pendingCount === 0 && failedCount === 0 && unansweredCount === 0 && (
+                        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-900 flex items-center gap-2">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                          <span>
+                            Tất cả {session.questions.length} câu hỏi đã hoàn tất chấm điểm. Sẵn sàng chốt kết quả phiên!
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </>
+                );
+              })()
+            )}
+
+            {/* Modal Footer */}
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#F0EBE1]">
+              <button
+                type="button"
+                onClick={() => setIsFinishModalOpen(false)}
+                disabled={isUpdatingStatus}
+                className="px-4 py-2 rounded-xl border border-[#DDD5C9] bg-white hover:bg-[#FAF7F2] text-xs font-medium text-[#1F1E1D] transition-colors cursor-pointer disabled:opacity-50"
+              >
+                Tiếp tục luyện tập
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCompleteSession}
+                disabled={isUpdatingStatus || isCheckingFinishProgress}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#D97757] hover:bg-[#C86B4D] text-xs font-medium text-white transition-colors cursor-pointer disabled:opacity-50 shadow-xs"
+              >
+                {isUpdatingStatus ? (
+                  <>
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    <span>Đang chốt phiên...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    <span>{pendingCount > 0 ? "Vẫn kết thúc ngay" : "Xác nhận kết thúc phiên"}</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
