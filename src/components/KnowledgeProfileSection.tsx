@@ -86,18 +86,30 @@ export function KnowledgeProfileSection({
     }
   };
 
+  const normalizeQuestionTopic = (role: string) => {
+    const upper = (role || "").trim().toUpperCase();
+    if (upper.includes("CHỦ TỊCH")) return "THỰC TẾ & ỨNG DỤNG";
+    if (upper.includes("PHẢN BIỆN")) return "PHƯƠNG PHÁP LUẬN";
+    if (upper.includes("ỦY VIÊN")) return "CHUYÊN MÔN";
+    return role;
+  };
+
   const getRoleBadgeStyle = (role: string) => {
-    if (role.includes("CHỦ TỊCH")) {
+    const upper = (role || "").toUpperCase();
+    if (upper.includes("THỰC TẾ") || upper.includes("ỨNG DỤNG")) {
       return "bg-indigo-50 text-indigo-700 border-indigo-200";
     }
-    if (role.includes("PHẢN BIỆN")) {
+    if (upper.includes("PHƯƠNG PHÁP") || upper.includes("LÝ LUẬN")) {
       return "bg-purple-50 text-purple-700 border-purple-200";
     }
     return "bg-emerald-50 text-emerald-700 border-emerald-200";
   };
 
   const data = profile?.profile_data;
-  const questions = data?.anticipated_questions || [];
+  const questions = (data?.anticipated_questions || []).map((q) => ({
+    ...q,
+    role: normalizeQuestionTopic(q.role),
+  }));
   const filteredQuestions =
     selectedRole === "ALL"
       ? questions
@@ -177,7 +189,7 @@ export function KnowledgeProfileSection({
               Chưa kích hoạt phân tích tri thức đồ án
             </h3>
             <p className="text-xs text-neutral-500 max-w-lg mx-auto">
-              Hệ thống sẽ tổng hợp tóm tắt cốt lõi, phát hiện các điểm yếu tiềm ẩn và sinh bộ câu hỏi chất vấn từ 3 vai trò Hội đồng bảo vệ.
+              Hệ thống sẽ tổng hợp tóm tắt cốt lõi, phát hiện các điểm yếu tiềm ẩn và dự đoán bộ câu hỏi phản biện theo các chủ đề trọng tâm.
             </p>
           </div>
           <button
@@ -205,7 +217,7 @@ export function KnowledgeProfileSection({
               Hệ thống đang nghiên cứu toàn văn đồ án của bạn...
             </p>
             <p className="text-xs text-neutral-500 max-w-md mx-auto">
-              Đang trích xuất kiến trúc, phân tích lỗ hổng phương pháp và dự đoán các góc hỏi của Hội đồng bảo vệ.
+              Đang trích xuất nội dung trọng tâm, phân tích lỗ hổng phương pháp và dự đoán các chủ đề câu hỏi từ Hệ thống.
             </p>
           </div>
         </div>
@@ -239,12 +251,12 @@ export function KnowledgeProfileSection({
             )}
           </div>
 
-          {/* Defense Weaknesses (Points of Interest for Committee) */}
+          {/* Defense Weaknesses */}
           {data.defense_weaknesses.length > 0 && (
             <div className="p-5 rounded-2xl bg-amber-50/60 border border-amber-200/80 space-y-3">
               <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-amber-900">
                 <AlertTriangle className="w-4 h-4 text-amber-600" />
-                Điểm yếu & Khía cạnh Hội đồng thường xoáy sâu
+                Điểm yếu & Khía cạnh Hệ thống phát hiện
               </div>
               <ul className="space-y-2">
                 {data.defense_weaknesses.map((weakness, idx) => (
@@ -266,18 +278,21 @@ export function KnowledgeProfileSection({
               <div className="flex items-center gap-2">
                 <HelpCircle className="w-5 h-5 text-neutral-700" />
                 <h3 className="text-base font-bold font-serif text-neutral-900">
-                  Bộ câu hỏi dự đoán từ Hội đồng
+                  Bộ câu hỏi dự đoán từ Hệ thống
                 </h3>
                 <span className="text-xs px-2 py-0.5 rounded-full bg-neutral-100 font-semibold text-neutral-600">
                   {questions.length} câu
                 </span>
               </div>
 
-              {/* Role filter buttons */}
+              {/* Topic filter buttons */}
               {availableRoles.length > 1 && (
                 <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
                   <button
-                    onClick={() => setSelectedRole("ALL")}
+                    onClick={() => {
+                      setSelectedRole("ALL");
+                      setExpandedQuestionIdx(null);
+                    }}
                     className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
                       selectedRole === "ALL"
                         ? "bg-neutral-900 text-white"
@@ -289,7 +304,10 @@ export function KnowledgeProfileSection({
                   {availableRoles.map((role) => (
                     <button
                       key={role}
-                      onClick={() => setSelectedRole(role)}
+                      onClick={() => {
+                        setSelectedRole(role);
+                        setExpandedQuestionIdx(null);
+                      }}
                       className={`px-3 py-1 rounded-lg text-xs font-medium whitespace-nowrap transition-colors ${
                         selectedRole === role
                           ? "bg-neutral-900 text-white"

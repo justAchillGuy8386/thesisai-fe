@@ -1,7 +1,7 @@
 import { api } from "@/lib/api";
 
 export interface AnticipatedQuestion {
-  role: "CHỦ TỊCH HỘI ĐỒNG" | "GIẢNG VIÊN PHẢN BIỆN" | "ỦY VIÊN HỘI ĐỒNG" | string;
+  role: "THỰC TẾ & ỨNG DỤNG" | "PHƯƠNG PHÁP LUẬN" | "CHUYÊN MÔN" | string;
   question: string;
   reason: string;
   suggested_answer_hint: string;
