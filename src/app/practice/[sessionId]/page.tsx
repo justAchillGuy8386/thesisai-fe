@@ -100,20 +100,26 @@ function PracticeRoomContent() {
 
   const currentQ: QuestionResponse | undefined = session?.questions?.[currentIdx];
   const isCompleted = session?.status === "completed" || session?.status === "partial_failed";
+  const isCompletedRef = useRef<boolean>(false);
 
   useEffect(() => {
     currentQIdRef.current = currentQ?.id ?? null;
   }, [currentQ?.id]);
 
-  // Fetch answer and evaluation for a specific question
+  useEffect(() => {
+    isCompletedRef.current = isCompleted;
+  }, [isCompleted]);
+
+  // Fetch answer (and evaluation only after the session has ended)
   const fetchQuestionAnswerAndEvaluation = useCallback(
-    async (qid: number) => {
+    async (qid: number, includeEvaluation?: boolean) => {
       if (!sessionId) return;
+      const shouldLoadEval = includeEvaluation ?? isCompletedRef.current;
       try {
         const ans = await practiceService.getAnswerDetail(sessionId, qid);
         setAnswersMap((prev) => ({ ...prev, [qid]: ans }));
 
-        if (ans.processing_status === "completed") {
+        if (ans.processing_status === "completed" && shouldLoadEval) {
           try {
             const ev = await practiceService.getAnswerEvaluation(sessionId, qid);
             setEvaluationsMap((prev) => ({ ...prev, [qid]: ev }));
@@ -133,8 +139,8 @@ function PracticeRoomContent() {
     if (!currentQ) return;
     recorder.resetRecording();
     setIsOutlineOpen(false);
-    fetchQuestionAnswerAndEvaluation(currentQ.id);
-  }, [currentIdx, currentQ?.id]); // eslint-disable-line react-hooks/exhaustive-deps
+    fetchQuestionAnswerAndEvaluation(currentQ.id, isCompleted);
+  }, [currentIdx, currentQ?.id, isCompleted]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Determine whether any job in the session is still running in the background
   const hasAnyPendingAnswer =
@@ -169,17 +175,19 @@ function PracticeRoomContent() {
 
           if (wasPending && nextSt === "completed") {
             const scoreText =
-              item.overall_score !== null && item.overall_score !== undefined
+              isCompletedRef.current &&
+              item.overall_score !== null &&
+              item.overall_score !== undefined
                 ? ` (${item.overall_score.toFixed(1)}/10)`
                 : "";
             toast.success(`Câu ${item.order_index} đã hoàn tất chấm điểm${scoreText}!`);
             if (currentQIdRef.current === item.question_id) {
-              fetchQuestionAnswerAndEvaluation(item.question_id);
+              fetchQuestionAnswerAndEvaluation(item.question_id, isCompletedRef.current);
             }
           } else if (wasPending && nextSt === "failed") {
             toast.error(`Câu ${item.order_index} xử lý thất bại. Bạn có thể mở lại câu này để thu âm lại.`);
             if (currentQIdRef.current === item.question_id) {
-              fetchQuestionAnswerAndEvaluation(item.question_id);
+              fetchQuestionAnswerAndEvaluation(item.question_id, isCompletedRef.current);
             }
           } else if (currentQIdRef.current === item.question_id && prevSt !== nextSt && nextSt !== "unanswered") {
             setAnswersMap((prev) => {
@@ -509,7 +517,10 @@ function PracticeRoomContent() {
               const isDiffHard = q.difficulty.toLowerCase().includes("hard") || q.difficulty.includes("khó");
 
               const statusTooltip =
-                isDone && progItem?.overall_score !== null && progItem?.overall_score !== undefined
+                isDone &&
+                isCompleted &&
+                progItem?.overall_score !== null &&
+                progItem?.overall_score !== undefined
                   ? `${STATUS_LABELS.completed} (${progItem.overall_score.toFixed(1)}/10)`
                   : STATUS_LABELS[qStatus] || qStatus;
 
@@ -706,13 +717,15 @@ function PracticeRoomContent() {
               onRerecord={() => {
                 setIsRerecordingMap((prev) => ({ ...prev, [currentQ.id]: true }));
               }}
-              onAudioPurged={() => fetchQuestionAnswerAndEvaluation(currentQ.id)}
+              onAudioPurged={() => fetchQuestionAnswerAndEvaluation(currentQ.id, isCompleted)}
               hasNextQuestion={currentIdx < session.questions.length - 1}
               onNextQuestion={() => {
                 if (currentIdx < session.questions.length - 1) {
                   setCurrentIdx(currentIdx + 1);
                 }
               }}
+              hideEvaluationResults={!isCompleted}
+              onFinishSession={handleCompleteSession}
             />
           )}
 

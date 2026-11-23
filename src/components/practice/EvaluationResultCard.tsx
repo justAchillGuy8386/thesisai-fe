@@ -36,6 +36,8 @@ interface EvaluationResultCardProps {
   onAudioPurged: () => void;
   hasNextQuestion?: boolean;
   onNextQuestion?: () => void;
+  hideEvaluationResults?: boolean;
+  onFinishSession?: () => void;
 }
 
 export function EvaluationResultCard({
@@ -48,6 +50,8 @@ export function EvaluationResultCard({
   onAudioPurged,
   hasNextQuestion = false,
   onNextQuestion,
+  hideEvaluationResults = false,
+  onFinishSession,
 }: EvaluationResultCardProps) {
   const [isModelAnswerOpen, setIsModelAnswerOpen] = useState(false);
   const [isRubricOpen, setIsRubricOpen] = useState(false);
@@ -196,7 +200,76 @@ export function EvaluationResultCard({
     );
   }
 
-  // 3. COMPLETED EVALUATION RESULT
+  // 3. COMPLETED WHILE SESSION IS STILL IN PROGRESS (Hide scores/feedback for focus)
+  if (status === "completed" && hideEvaluationResults) {
+    const completedSteps = [
+      { key: "queued", label: "Đã tiếp nhận bản ghi âm" },
+      { key: "transcribing", label: "Đã chuyển giọng nói thành văn bản (Whisper)" },
+      { key: "evaluating", label: "Hệ thống AI đã hoàn tất chấm điểm" },
+    ];
+
+    return (
+      <div className="bg-white rounded-3xl border border-emerald-200 p-6 sm:p-8 shadow-xs text-center">
+        <div className="w-14 h-14 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto mb-4">
+          <CheckCircle2 className="w-7 h-7" />
+        </div>
+
+        <h3 className="font-serif text-xl text-[#1F1E1D] font-normal mb-2">
+          Đã hoàn tất xử lý câu trả lời
+        </h3>
+        <p className="text-xs sm:text-sm text-[#706B63] max-w-md mx-auto mb-6 leading-relaxed">
+          Điểm số và nhận xét chi tiết được ẩn trong lúc luyện tập, toàn bộ kết quả sẽ hiển thị sau khi bạn kết thúc phiên bảo vệ.
+        </p>
+
+        <div className="max-w-md mx-auto space-y-2.5 text-left">
+          {completedSteps.map((st) => (
+            <div
+              key={st.key}
+              className="p-3.5 rounded-2xl border bg-emerald-50/50 border-emerald-200 flex items-center gap-3"
+            >
+              <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+              <span className="text-xs sm:text-sm font-medium text-[#1F1E1D]">
+                {st.label}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        <div className="mt-6 pt-5 border-t border-[#F0EBE1] flex items-center justify-center gap-3 flex-wrap">
+          <button
+            type="button"
+            onClick={onRerecord}
+            className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl border border-[#DDD5C9] bg-white hover:bg-[#FAF7F2] text-[#1F1E1D] text-xs sm:text-sm font-medium transition-colors cursor-pointer"
+          >
+            <Mic className="w-4 h-4 text-[#D97757]" />
+            <span>Thu âm lại</span>
+          </button>
+
+          {hasNextQuestion && onNextQuestion ? (
+            <button
+              type="button"
+              onClick={onNextQuestion}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D97757] hover:bg-[#C86B4D] text-white text-xs sm:text-sm font-medium transition-colors shadow-xs cursor-pointer"
+            >
+              <span>Câu tiếp theo</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          ) : onFinishSession ? (
+            <button
+              type="button"
+              onClick={onFinishSession}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs sm:text-sm font-medium transition-colors shadow-xs cursor-pointer"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Kết thúc phiên</span>
+            </button>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
+
+  // 4. COMPLETED EVALUATION RESULT (Visible after session finishes)
   if (!evaluation) {
     return (
       <div className="bg-white rounded-3xl border border-[#EAE4D9] p-6 text-center text-[#706B63]">
@@ -239,7 +312,7 @@ export function EvaluationResultCard({
             <div className="flex items-center gap-2 mb-1">
               <Award className="w-4 h-4 text-[#D97757]" />
               <h3 className="font-serif text-lg sm:text-xl text-[#1F1E1D] font-medium leading-none">
-                Đánh giá của Hội đồng AI
+                Đánh giá của Hệ thống AI
               </h3>
             </div>
             <p className="text-xs text-[#706B63]">
