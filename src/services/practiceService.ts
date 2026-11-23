@@ -11,6 +11,15 @@ export interface QuestionResponse {
   source_chunk_ids: number[];
   recommended_seconds: number;
   is_answered: boolean;
+  answer_id?: number | null;
+  answer_processing_status?:
+    | "unanswered"
+    | "queued"
+    | "transcribing"
+    | "evaluating"
+    | "completed"
+    | "failed"
+    | string;
   created_at: string;
 }
 
@@ -19,7 +28,7 @@ export interface PracticeSessionListItem {
   session_number?: number;
   project_id: number;
   mode: string;
-  status: "in_progress" | "completed" | "cancelled" | string;
+  status: "in_progress" | "completed" | "partial_failed" | "cancelled" | string;
   knowledge_profile_version: number;
   total_questions: number;
   answered_questions: number;
@@ -32,11 +41,43 @@ export interface PracticeSessionDetail {
   session_number?: number;
   project_id: number;
   mode: string;
-  status: "in_progress" | "completed" | "cancelled" | string;
+  status: "in_progress" | "completed" | "partial_failed" | "cancelled" | string;
   knowledge_profile_version: number;
   started_at: string;
   ended_at?: string | null;
   questions: QuestionResponse[];
+}
+
+export interface QuestionProgressItem {
+  question_id: number;
+  order_index: number;
+  answer_id?: number | null;
+  processing_status:
+    | "unanswered"
+    | "queued"
+    | "transcribing"
+    | "evaluating"
+    | "completed"
+    | "failed"
+    | string;
+  overall_score?: number | null;
+  error_message?: string | null;
+}
+
+export interface PracticeSessionProgress {
+  session_id: number;
+  session_number: number;
+  status: "in_progress" | "completed" | "partial_failed" | "cancelled" | string;
+  total_questions: number;
+  answered_count: number;
+  unanswered_count: number;
+  queued_count: number;
+  processing_count: number;
+  completed_count: number;
+  failed_count: number;
+  has_pending_jobs: boolean;
+  all_answered_finished: boolean;
+  questions: QuestionProgressItem[];
 }
 
 export interface AnswerSubmitResponse {
@@ -165,11 +206,20 @@ export const practiceService = {
   },
 
   /**
+   * Lấy tiến trình xử lý ngầm của toàn bộ câu hỏi trong phiên
+   */
+  async getSessionProgress(sessionId: number): Promise<PracticeSessionProgress> {
+    return await api.get<PracticeSessionProgress>(
+      `/practice/sessions/${sessionId}/progress`
+    );
+  },
+
+  /**
    * Cập nhật trạng thái phiên (hoàn thành hoặc hủy)
    */
   async updateSessionStatus(
     sessionId: number,
-    status: "in_progress" | "completed" | "cancelled"
+    status: "in_progress" | "completed" | "partial_failed" | "cancelled"
   ): Promise<PracticeSessionDetail> {
     return await api.patch<PracticeSessionDetail>(
       `/practice/sessions/${sessionId}/status`,

@@ -12,6 +12,7 @@ import {
   Sparkles,
   ChevronDown,
   ChevronUp,
+  ChevronRight,
   ShieldCheck,
   Activity,
   Loader2,
@@ -33,6 +34,8 @@ interface EvaluationResultCardProps {
   onReevaluate: () => Promise<void>;
   onRerecord: () => void;
   onAudioPurged: () => void;
+  hasNextQuestion?: boolean;
+  onNextQuestion?: () => void;
 }
 
 export function EvaluationResultCard({
@@ -43,6 +46,8 @@ export function EvaluationResultCard({
   onReevaluate,
   onRerecord,
   onAudioPurged,
+  hasNextQuestion = false,
+  onNextQuestion,
 }: EvaluationResultCardProps) {
   const [isModelAnswerOpen, setIsModelAnswerOpen] = useState(false);
   const [isRubricOpen, setIsRubricOpen] = useState(false);
@@ -86,16 +91,21 @@ export function EvaluationResultCard({
   // 1. PROCESSING STATE (Async Background Stepper)
   if (isProcessing) {
     const steps = [
-      { key: "queued", label: "Tiếp nhận bản ghi âm", active: false, completed: true },
+      {
+        key: "queued",
+        label: status === "queued" ? "Đang xếp hàng chờ xử lý ngầm" : "Đã tiếp nhận bản ghi âm",
+        active: status === "queued",
+        completed: status === "transcribing" || status === "evaluating",
+      },
       {
         key: "transcribing",
-        label: "Chuyển thành văn bản (Faster-Whisper)",
-        active: status === "transcribing" || status === "queued",
+        label: "Chuyển giọng nói thành văn bản (Whisper)",
+        active: status === "transcribing",
         completed: status === "evaluating",
       },
       {
         key: "evaluating",
-        label: "Hội đồng AI chấm Rubric & đối chiếu luận văn",
+        label: "Hệ thống AI chấm Rubric & đối chiếu tài liệu",
         active: status === "evaluating",
         completed: false,
       },
@@ -108,14 +118,16 @@ export function EvaluationResultCard({
         </div>
 
         <h3 className="font-serif text-xl text-[#1F1E1D] font-normal mb-2">
-          Đang xử lý câu trả lời của bạn
+          {status === "queued"
+            ? "Đã lưu bài nói vào hàng đợi xử lý"
+            : "Đang xử lý câu trả lời của bạn"}
         </h3>
-        <p className="text-xs sm:text-sm text-[#706B63] max-w-md mx-auto mb-8 leading-relaxed">
-          Quá trình diễn ra tự động trên máy tính của bạn với mô hình cục bộ nhằm bảo đảm bảo mật dữ liệu tuyệt đối.
+        <p className="text-xs sm:text-sm text-[#706B63] max-w-md mx-auto mb-6 leading-relaxed">
+          Quá trình gỡ băng và chấm điểm chạy ngầm tự động — bạn không cần chờ ở đây mà có thể trả lời tiếp các câu khác.
         </p>
 
         {/* Stepper Progress */}
-        <div className="max-w-md mx-auto space-y-3 text-left">
+        <div className="max-w-md mx-auto space-y-2.5 text-left">
           {steps.map((st, i) => (
             <div
               key={st.key}
@@ -142,6 +154,19 @@ export function EvaluationResultCard({
             </div>
           ))}
         </div>
+
+        {hasNextQuestion && onNextQuestion && (
+          <div className="mt-6 pt-5 border-t border-[#F0EBE1]">
+            <button
+              type="button"
+              onClick={onNextQuestion}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#D97757] hover:bg-[#C86B4D] text-white text-xs sm:text-sm font-medium transition-colors shadow-xs cursor-pointer"
+            >
+              <span>Tiếp tục Câu tiếp theo</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
     );
   }

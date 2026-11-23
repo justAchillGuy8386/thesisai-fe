@@ -22,6 +22,8 @@ import { toast } from "sonner";
 import {
   practiceService,
   PracticeSessionDetail,
+  PracticeSessionProgress,
+  QuestionProgressItem,
   QuestionResponse,
   AnswerDetailResponse,
   AnswerEvaluationResponse,
@@ -30,12 +32,22 @@ import { useVoiceRecorder } from "@/hooks/useVoiceRecorder";
 import { VoiceRecorderSection } from "@/components/practice/VoiceRecorderSection";
 import { EvaluationResultCard } from "@/components/practice/EvaluationResultCard";
 
+const STATUS_LABELS: Record<string, string> = {
+  unanswered: "Chưa trả lời",
+  queued: "Đang chờ hàng đợi xử lý",
+  transcribing: "Đang chuyển giọng nói thành văn bản",
+  evaluating: "Hệ thống đang chấm điểm",
+  completed: "Đã hoàn tất chấm điểm",
+  failed: "Xử lý thất bại",
+};
+
 function PracticeRoomContent() {
   const params = useParams();
   const router = useRouter();
   const sessionId = Number(params?.sessionId);
 
   const [session, setSession] = useState<PracticeSessionDetail | null>(null);
+  const [progress, setProgress] = useState<PracticeSessionProgress | null>(null);
   const [currentIdx, setCurrentIdx] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isOutlineOpen, setIsOutlineOpen] = useState(false);
@@ -49,16 +61,29 @@ function PracticeRoomContent() {
   const [isRerecordingMap, setIsRerecordingMap] = useState<Record<number, boolean>>({});
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const currentQIdRef = useRef<number | null>(null);
+  const prevStatusMapRef = useRef<Record<number, string>>({});
 
-  // Fetch session details on mount
+  // Fetch session details & whole-session progress on mount
   useEffect(() => {
     if (!sessionId || isNaN(sessionId)) return;
 
     const fetchDetail = async () => {
       setIsLoading(true);
       try {
-        const data = await practiceService.getPracticeSessionDetail(sessionId);
-        setSession(data);
+        const [detailData, progressData] = await Promise.all([
+          practiceService.getPracticeSessionDetail(sessionId),
+          practiceService.getSessionProgress(sessionId).catch(() => null),
+        ]);
+        setSession(detailData);
+        if (progressData) {
+          setProgress(progressData);
+          const initialStatusMap: Record<number, string> = {};
+          progressData.questions.forEach((item) => {
+            initialStatusMap[item.question_id] = item.processing_status;
+          });
+          prevStatusMapRef.current = initialStatusMap;
+        }
       } catch (err: any) {
         toast.error(err.message || "Không thể tải thông tin phiên luyện tập.");
         router.push("/dashboard");
@@ -71,7 +96,11 @@ function PracticeRoomContent() {
   }, [sessionId, router]);
 
   const currentQ: QuestionResponse | undefined = session?.questions?.[currentIdx];
-  const isCompleted = session?.status === "completed";
+  const isCompleted = session?.status === "completed" || session?.status === "partial_failed";
+
+  useEffect(() => {
+    currentQIdRef.current = currentQ?.id ?? null;
+  }, [currentQ?.id]);
 
   // Fetch answer and evaluation for a specific question
   const fetchQuestionAnswerAndEvaluation = useCallback(
@@ -104,49 +133,74 @@ function PracticeRoomContent() {
     fetchQuestionAnswerAndEvaluation(currentQ.id);
   }, [currentIdx, currentQ?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Background polling for active processing jobs
+  // Determine whether any job in the session is still running in the background
+  const hasAnyPendingAnswer =
+    Boolean(progress?.has_pending_jobs) ||
+    Object.values(answersMap).some(
+      (a) =>
+        a.processing_status === "queued" ||
+        a.processing_status === "transcribing" ||
+        a.processing_status === "evaluating"
+    );
+
+  // Whole-session background progress polling (only active while pending jobs exist)
   useEffect(() => {
-    if (!currentQ || !sessionId) return;
-    const currentAns = answersMap[currentQ.id];
-
-    const needsPolling =
-      currentAns &&
-      (currentAns.processing_status === "queued" ||
-        currentAns.processing_status === "transcribing" ||
-        currentAns.processing_status === "evaluating");
-
-    if (needsPolling) {
-      if (!pollingIntervalRef.current) {
-        pollingIntervalRef.current = setInterval(async () => {
-          try {
-            const updatedAns = await practiceService.getAnswerDetail(sessionId, currentQ.id);
-            setAnswersMap((prev) => ({ ...prev, [currentQ.id]: updatedAns }));
-
-            if (updatedAns.processing_status === "completed") {
-              const updatedEv = await practiceService.getAnswerEvaluation(sessionId, currentQ.id);
-              setEvaluationsMap((prev) => ({ ...prev, [currentQ.id]: updatedEv }));
-              if (pollingIntervalRef.current) {
-                clearInterval(pollingIntervalRef.current);
-                pollingIntervalRef.current = null;
-              }
-              toast.success("Hội đồng AI đã hoàn tất chấm điểm câu trả lời!");
-            } else if (updatedAns.processing_status === "failed") {
-              if (pollingIntervalRef.current) {
-                clearInterval(pollingIntervalRef.current);
-                pollingIntervalRef.current = null;
-              }
-              toast.error("Không thể hoàn tất đánh giá câu trả lời.");
-            }
-          } catch (pollErr) {
-            console.error("Polling error:", pollErr);
-          }
-        }, 2500);
-      }
-    } else {
+    if (!sessionId || !hasAnyPendingAnswer) {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
         pollingIntervalRef.current = null;
       }
+      return;
+    }
+
+    const pollSessionProgress = async () => {
+      try {
+        const updatedProg = await practiceService.getSessionProgress(sessionId);
+        setProgress(updatedProg);
+
+        for (const item of updatedProg.questions) {
+          const prevSt = prevStatusMapRef.current[item.question_id];
+          const nextSt = item.processing_status;
+          const wasPending =
+            prevSt === "queued" || prevSt === "transcribing" || prevSt === "evaluating";
+
+          if (wasPending && nextSt === "completed") {
+            const scoreText =
+              item.overall_score !== null && item.overall_score !== undefined
+                ? ` (${item.overall_score.toFixed(1)}/10)`
+                : "";
+            toast.success(`Câu ${item.order_index} đã hoàn tất chấm điểm${scoreText}!`);
+            if (currentQIdRef.current === item.question_id) {
+              fetchQuestionAnswerAndEvaluation(item.question_id);
+            }
+          } else if (wasPending && nextSt === "failed") {
+            toast.error(`Câu ${item.order_index} xử lý thất bại. Bạn có thể mở lại câu này để thu âm lại.`);
+            if (currentQIdRef.current === item.question_id) {
+              fetchQuestionAnswerAndEvaluation(item.question_id);
+            }
+          } else if (currentQIdRef.current === item.question_id && prevSt !== nextSt && nextSt !== "unanswered") {
+            setAnswersMap((prev) => {
+              const existing = prev[item.question_id];
+              if (!existing) return prev;
+              return {
+                ...prev,
+                [item.question_id]: {
+                  ...existing,
+                  processing_status: nextSt,
+                },
+              };
+            });
+          }
+
+          prevStatusMapRef.current[item.question_id] = nextSt;
+        }
+      } catch (pollErr) {
+        console.error("Session progress polling error:", pollErr);
+      }
+    };
+
+    if (!pollingIntervalRef.current) {
+      pollingIntervalRef.current = setInterval(pollSessionProgress, 3000);
     }
 
     return () => {
@@ -155,7 +209,7 @@ function PracticeRoomContent() {
         pollingIntervalRef.current = null;
       }
     };
-  }, [sessionId, currentQ?.id, answersMap]);
+  }, [sessionId, hasAnyPendingAnswer, fetchQuestionAnswerAndEvaluation]);
 
   // Submit audio answer
   const handleSubmitAnswer = async (audioBlob: Blob, durationSeconds: number) => {
@@ -170,7 +224,7 @@ function PracticeRoomContent() {
         durationSeconds
       );
 
-      // Update state to queued
+      // Update local answer state to queued immediately
       setAnswersMap((prev) => ({
         ...prev,
         [currentQ.id]: {
@@ -185,10 +239,27 @@ function PracticeRoomContent() {
         },
       }));
 
+      // Clear stale evaluation if re-recording
+      setEvaluationsMap((prev) => {
+        const next = { ...prev };
+        delete next[currentQ.id];
+        return next;
+      });
+
+      prevStatusMapRef.current[currentQ.id] = "queued";
+
+      // Optimistically refresh whole-session progress
+      practiceService
+        .getSessionProgress(sessionId)
+        .then((p) => setProgress(p))
+        .catch(() => {});
+
       // Exit re-recording mode
       setIsRerecordingMap((prev) => ({ ...prev, [currentQ.id]: false }));
       recorder.resetRecording();
-      toast.success("Đã nộp câu trả lời thành công! Hệ thống đang tiến hành STT và chấm điểm ngầm.");
+      toast.success(
+        `Đã nộp Câu ${currentIdx + 1}! Hệ thống đang xử lý ngầm — bạn có thể chuyển sang câu tiếp theo.`
+      );
     } catch (err: any) {
       toast.error(err.message || "Không thể gửi bản ghi âm câu trả lời.");
     } finally {
@@ -201,6 +272,10 @@ function PracticeRoomContent() {
     if (!currentQ || !sessionId) return;
     const ev = await practiceService.reevaluateAnswer(sessionId, currentQ.id);
     setEvaluationsMap((prev) => ({ ...prev, [currentQ.id]: ev }));
+    practiceService
+      .getSessionProgress(sessionId)
+      .then((p) => setProgress(p))
+      .catch(() => {});
   };
 
   // Mark session complete
@@ -284,6 +359,27 @@ function PracticeRoomContent() {
   const currentEvaluation = evaluationsMap[currentQ.id] || null;
   const isRerecording = isRerecordingMap[currentQ.id] || false;
 
+  const progressByQuestionId: Record<number, QuestionProgressItem> = {};
+  if (progress?.questions) {
+    for (const item of progress.questions) {
+      progressByQuestionId[item.question_id] = item;
+    }
+  }
+
+  const getQuestionStatus = (q: QuestionResponse): string => {
+    const localAns = answersMap[q.id];
+    const progItem = progressByQuestionId[q.id];
+    if (progItem) return progItem.processing_status;
+    if (localAns) return localAns.processing_status;
+    return q.answer_processing_status || (q.is_answered ? "completed" : "unanswered");
+  };
+
+  const answeredCount =
+    progress?.answered_count ??
+    session.questions.filter((q) => getQuestionStatus(q) !== "unanswered").length;
+  const pendingCount = (progress?.queued_count ?? 0) + (progress?.processing_count ?? 0);
+  const failedCount = progress?.failed_count ?? 0;
+
   return (
     <div className="min-h-screen bg-[#FAF8F5] text-[#1F1E1D] flex flex-col">
       {/* Top Bar Navigation */}
@@ -303,16 +399,22 @@ function PracticeRoomContent() {
               </h1>
               <span
                 className={`text-xs px-2.5 py-0.5 rounded-full font-medium ${
-                  isCompleted
+                  session.status === "partial_failed"
+                    ? "bg-rose-100 text-rose-800"
+                    : isCompleted
                     ? "bg-emerald-100 text-emerald-800"
                     : "bg-amber-100 text-amber-800"
                 }`}
               >
-                {isCompleted ? "Đã hoàn thành" : "Đang luyện tập"}
+                {session.status === "partial_failed"
+                  ? "Hoàn tất một phần"
+                  : isCompleted
+                  ? "Đã hoàn thành"
+                  : "Đang luyện tập"}
               </span>
             </div>
             <p className="text-xs text-[#706B63] mt-1">
-              Mô phỏng phản biện Hội đồng • {session.questions.length} câu hỏi đánh giá
+              Phòng luyện tập bảo vệ • {answeredCount}/{session.questions.length} câu đã trả lời
             </p>
           </div>
         </div>
@@ -335,23 +437,50 @@ function PracticeRoomContent() {
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left Column (4 cols): Question Navigation Index */}
         <div className="lg:col-span-4 bg-white rounded-3xl border border-[#EAE4D9] p-5 sm:p-6 shadow-xs flex flex-col h-fit lg:sticky lg:top-24">
-          <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center justify-between mb-3">
             <span className="text-xs font-bold text-[#D97757] uppercase tracking-wider">
               Danh sách câu hỏi
             </span>
             <span className="text-xs text-[#706B63] font-medium">
-              Câu {currentIdx + 1} / {session.questions.length}
+              {answeredCount} / {session.questions.length} đã nộp
             </span>
           </div>
 
+          {/* Live background job indicator (only visible when pending or failed) */}
+          {(pendingCount > 0 || failedCount > 0) && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 text-[11px]">
+              {pendingCount > 0 && (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 font-medium">
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  Đang xử lý ngầm: {pendingCount} câu
+                </span>
+              )}
+              {failedCount > 0 && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-rose-50 text-rose-700 border border-rose-200 font-medium">
+                  <AlertCircle className="w-3 h-3" />
+                  Lỗi: {failedCount} câu
+                </span>
+              )}
+            </div>
+          )}
+
           {/* Question Pills Grid */}
-          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 gap-2 mb-6">
+          <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-4 gap-2 mb-5">
             {session.questions.map((q, idx) => {
               const isActive = idx === currentIdx;
-              const ansForQ = answersMap[q.id];
-              const isAnswered = ansForQ && ansForQ.processing_status === "completed";
+              const qStatus = getQuestionStatus(q);
+              const progItem = progressByQuestionId[q.id];
+              const isDone = qStatus === "completed";
+              const isQueued = qStatus === "queued";
+              const isWorking = qStatus === "transcribing" || qStatus === "evaluating";
+              const isFailed = qStatus === "failed";
               const isDiffEasy = q.difficulty.toLowerCase().includes("easy") || q.difficulty.includes("dễ");
               const isDiffHard = q.difficulty.toLowerCase().includes("hard") || q.difficulty.includes("khó");
+
+              const statusTooltip =
+                isDone && progItem?.overall_score !== null && progItem?.overall_score !== undefined
+                  ? `${STATUS_LABELS.completed} (${progItem.overall_score.toFixed(1)}/10)`
+                  : STATUS_LABELS[qStatus] || qStatus;
 
               return (
                 <button
@@ -359,22 +488,44 @@ function PracticeRoomContent() {
                   onClick={() => {
                     setCurrentIdx(idx);
                   }}
-                  className={`h-11 rounded-xl text-xs font-semibold flex flex-col items-center justify-center transition-all cursor-pointer relative ${
+                  title={`Câu ${idx + 1}: ${statusTooltip}`}
+                  className={`h-12 rounded-xl text-xs font-semibold flex flex-col items-center justify-center transition-all cursor-pointer relative ${
                     isActive
                       ? "bg-[#D97757] text-white shadow-xs scale-105 z-10"
-                      : isAnswered
+                      : isDone
                       ? "bg-emerald-50 border border-emerald-300 text-emerald-800"
+                      : isWorking || isQueued
+                      ? "bg-amber-50 border border-amber-300 text-amber-900"
+                      : isFailed
+                      ? "bg-rose-50 border border-rose-300 text-rose-800"
                       : "bg-[#FAF8F5] border border-[#EAE4D9] text-[#5C564E] hover:bg-[#F2ECE1]"
                   }`}
                 >
-                  <span className="leading-tight flex items-center gap-0.5">
+                  <span className="leading-tight flex items-center gap-1">
                     {idx + 1}
-                    {isAnswered && !isActive && (
-                      <CheckCircle2 className="w-2.5 h-2.5 text-emerald-600 inline" />
+                    {isDone && (
+                      <CheckCircle2
+                        className={`w-3 h-3 ${isActive ? "text-white" : "text-emerald-600"}`}
+                      />
+                    )}
+                    {isWorking && (
+                      <Loader2
+                        className={`w-3 h-3 animate-spin ${isActive ? "text-white" : "text-amber-600"}`}
+                      />
+                    )}
+                    {isQueued && (
+                      <Clock
+                        className={`w-3 h-3 ${isActive ? "text-white" : "text-amber-600"}`}
+                      />
+                    )}
+                    {isFailed && (
+                      <AlertCircle
+                        className={`w-3 h-3 ${isActive ? "text-white" : "text-rose-600"}`}
+                      />
                     )}
                   </span>
                   <span
-                    className={`w-1.5 h-1.5 rounded-full mt-0.5 ${
+                    className={`w-1.5 h-1.5 rounded-full mt-1 ${
                       isActive
                         ? "bg-white"
                         : isDiffEasy
@@ -389,19 +540,35 @@ function PracticeRoomContent() {
             })}
           </div>
 
-          {/* Difficulty Legend */}
-          <div className="pt-4 border-t border-[#F0EBE1] flex items-center justify-between text-xs text-[#706B63]">
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              <span>Dễ</span>
+          {/* Difficulty & Status Legend */}
+          <div className="pt-4 border-t border-[#F0EBE1] space-y-2.5 text-[11px] text-[#706B63]">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                <span>Dễ</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-sky-500" />
+                <span>Trung bình</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-rose-500" />
+                <span>Khó</span>
+              </div>
             </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-sky-500" />
-              <span>Trung bình</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-rose-500" />
-              <span>Khó</span>
+            <div className="flex items-center justify-between pt-2 border-t border-[#F7F3EC] text-[10px]">
+              <span className="inline-flex items-center gap-1">
+                <Clock className="w-3 h-3 text-amber-600" />
+                Chờ xử lý
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <Loader2 className="w-3 h-3 text-amber-600" />
+                Đang chấm
+              </span>
+              <span className="inline-flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                Đã xong
+              </span>
             </div>
           </div>
         </div>
@@ -509,6 +676,12 @@ function PracticeRoomContent() {
                 setIsRerecordingMap((prev) => ({ ...prev, [currentQ.id]: true }));
               }}
               onAudioPurged={() => fetchQuestionAnswerAndEvaluation(currentQ.id)}
+              hasNextQuestion={currentIdx < session.questions.length - 1}
+              onNextQuestion={() => {
+                if (currentIdx < session.questions.length - 1) {
+                  setCurrentIdx(currentIdx + 1);
+                }
+              }}
             />
           )}
 
