@@ -63,21 +63,21 @@ export default function PracticeSessionsSection({
     }
 
     setIsCreating(true);
+    const toastId = toast.loading("Hệ thống đang phân tích tài liệu và biên soạn 12 câu hỏi phản biện...");
     try {
-      toast.info("Đang phân tích tài liệu và khởi tạo bộ câu hỏi bảo vệ...", {
-        duration: 3500,
-      });
       const newSession = await practiceService.createPracticeSession(
         projectId,
         "question_answer",
         12
       );
+      toast.dismiss(toastId);
       toast.success(
-        `Đã tạo thành công Phiên #${newSession.id} với ${newSession.questions.length} câu hỏi bảo vệ!`
+        `Đã tạo thành công Phiên #${newSession.session_number ?? newSession.id} với ${newSession.questions.length} câu hỏi bảo vệ!`
       );
       // Navigate to the practice room
       router.push(`/practice/${newSession.id}`);
     } catch (err: any) {
+      toast.dismiss(toastId);
       toast.error(
         err.message || "Không thể khởi tạo phiên luyện tập. Vui lòng thử lại sau ít phút."
       );
@@ -126,7 +126,7 @@ export default function PracticeSessionsSection({
           {isCreating ? (
             <>
               <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Đang sinh câu hỏi...</span>
+              <span>Đang biên soạn câu hỏi...</span>
             </>
           ) : (
             <>
